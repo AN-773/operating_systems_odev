@@ -34,7 +34,48 @@ void print_prompt()
     printf("> ");
     fflush(stdout);
 }
+/*
+ * Kullanıcı girdisini işleyen ve uygun şekilde çalıştıran fonksiyon
+ * Parametreler:
+ * - input: Kullanıcıdan alınan komut satırı
+ * İşlevler:
+ * - Pipe içeren ve içermeyen komutları ayırt eder
+ * - Uygun çalıştırma fonksiyonunu çağırır
+ */
+void parse_and_execute(char *input)
+{
+    char *commands[MAX_ARGUMENTS];
+    int command_count = 0;
 
+    // Split input by ';'
+    char *token = strtok(input, ";");
+    while (token != NULL && command_count < MAX_ARGUMENTS - 1)
+    {
+        commands[command_count++] = token;
+        if (strstr(token, "<") != NULL)
+        {
+            // This will fix error showing after prompt > {Error}
+            char sleep[] = "sleep 0.2";
+            commands[command_count++] = sleep;
+        }
+        token = strtok(NULL, ";");
+    }
+    commands[command_count] = NULL;
+
+    for (int i = 0; i < command_count; i++)
+    {
+        if (strchr(commands[i], '|') != NULL)
+        {
+            // TODO - Pipe işlemini gerçekleştir
+//            execute_piped_commands(commands[i]);
+        }
+        else
+        {
+            // TODO - Pipe içermeyen komutları çalıştır
+//            execute_command(commands[i]);
+        }
+    }
+}
 
 /*
  * Ana fonksiyon
