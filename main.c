@@ -34,6 +34,153 @@ void print_prompt()
     printf("> ");
     fflush(stdout);
 }
+
+/*
+ * Tek bir komutu çalıştıran fonksiyon
+ * Parametreler:
+ * - command: Çalıştırılacak komut dizisi
+ * İşlevler:
+ * - Komutu argümanlara ayırır
+ * - Input/Output yönlendirmelerini işler
+ * - Arka plan çalıştırma kontrolü yapar
+ * - Özel komutları (cd, quit) işler
+ */
+void execute_command(char *command)
+{
+    // Komut argümanlarını ve yönlendirme değişkenlerini tanımla
+    char *args[MAX_ARGUMENTS];
+    int arg_count = 0;
+    char *input_file = NULL, *output_file = NULL;
+    int background = 0;
+
+    // Komutu boşluklara göre parçala ve argümanları işle
+    char *token = strtok(command, " ");
+    while (token != NULL && arg_count < MAX_ARGUMENTS - 1)
+    {
+        // Input yönlendirmesi (<) kontrolü
+        if (strcmp(token, "<") == 0)
+        {
+            token = strtok(NULL, " ");
+            if (token)
+                input_file = token;
+        }
+            // Output yönlendirmesi (>) kontrolü
+        else if (strcmp(token, ">") == 0)
+        {
+            token = strtok(NULL, " ");
+            if (token)
+                output_file = token;
+        }
+            // Arka plan işlemi (&) kontrolü
+        else if (strcmp(token, "&") == 0)
+        {
+            background = 1;
+        }
+            // Normal argüman ise diziye ekle
+        else
+        {
+            args[arg_count++] = token;
+        }
+        token = strtok(NULL, " ");
+    }
+    args[arg_count] = NULL;
+
+    // Boş komut kontrolü
+    if (arg_count == 0)
+        return;
+
+    // Çıkış komutu kontrolü
+    if (strcmp(args[0], "quit") == 0)
+    {
+        printf("Exiting shell...\n");
+        exit(0);
+    }
+
+    // cd (dizin değiştirme) komutu kontrolü
+    if (strcmp(args[0], "cd") == 0)
+    {
+        if (arg_count < 2)
+        {
+            // Argüman verilmemişse ev dizinine git
+            char *home = getenv("HOME");
+            if (home != NULL && chdir(home) != 0)
+            {
+                perror("cd");
+            }
+        }
+        else if (chdir(args[1]) != 0)
+        {
+            perror("cd");
+        }
+        return;
+    }
+
+    // Yeni bir süreç oluştur
+    pid_t pid = fork();
+    if (pid < 0)
+    {
+        perror("Fork failed");
+        return;
+    }
+
+    if (pid == 0)
+    {
+        // Çocuk süreç işlemleri
+
+        // Input yönlendirmesi varsa dosyayı aç ve stdin'e yönlendir
+        if (input_file)
+        {
+            int fd_in = open(input_file, O_RDONLY);
+            if (fd_in < 0)
+            {
+                perror("Input file error");
+                exit(EXIT_FAILURE);
+            }
+            dup2(fd_in, STDIN_FILENO);
+            close(fd_in);
+        }
+
+        // Output yönlendirmesi varsa dosyayı aç ve stdout'a yönlendir
+        if (output_file)
+        {
+            int fd_out = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fd_out < 0)
+            {
+                perror("Output file error");
+                exit(EXIT_FAILURE);
+            }
+            dup2(fd_out, STDOUT_FILENO);
+            close(fd_out);
+        }
+
+        // Komutu çalıştır
+        if (execvp(args[0], args) < 0)
+        {
+            perror("Command execution failed");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        // Ana süreç işlemleri
+        if (background)
+        {
+            // Arka plan işlemi ise PID'i kaydet ve devam et
+            printf("[PID %d] Running in background\n", pid);
+            if (bg_process_count < MAX_BG_PROCESSES)
+            {
+                background_processes[bg_process_count++] = pid;
+            }
+        }
+        else
+        {
+            // Ön plan işlemi ise çocuk sürecin bitmesini bekle
+            int status;
+            waitpid(pid, &status, 0);
+        }
+    }
+}
+
 /*
  * Kullanıcı girdisini işleyen ve uygun şekilde çalıştıran fonksiyon
  * Parametreler:
@@ -71,8 +218,7 @@ void parse_and_execute(char *input)
         }
         else
         {
-            // TODO - Pipe içermeyen komutları çalıştır
-//            execute_command(commands[i]);
+            execute_command(commands[i]);
         }
     }
 }
