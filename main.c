@@ -9,23 +9,12 @@
  * - Dizin değiştirme (cd komutu)
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/wait.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <errno.h>
+#include "shell.h"
 
-/* Sabit tanımlamalar */
-#define MAX_COMMAND_LENGTH 1024    // Maksimum komut uzunluğu
-#define MAX_ARGUMENTS 100          // Bir komut için maksimum argüman sayısı
-#define MAX_BG_PROCESSES 100       // Maksimum arka plan işlem sayısı
+/* Arka planda çalışan süreçlerin PID'lerini tutan dizi */
+pid_t background_processes[MAX_BG_PROCESSES];
+int bg_process_count = 0;
 
-/* Global değişkenler */
-pid_t background_processes[MAX_BG_PROCESSES];  // Arka plan işlemlerinin PID'lerini tutan dizi
-int bg_process_count = 0;                      // Mevcut arka plan işlem sayısı
 
 /* Komut istemini ekrana yazdıran fonksiyon */
 void print_prompt()
