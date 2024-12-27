@@ -182,6 +182,89 @@ void execute_command(char *command)
 }
 
 /*
+ * Pipe ile bağlanmış komutları çalıştıran fonksiyon
+ * Parametreler:
+ * - command: Pipe (|) ile ayrılmış komutlar dizisi
+ * İşlevler:
+ * - Komutları pipe karakterine göre ayırır
+ * - Her komut için ayrı bir süreç oluşturur
+ * - Süreçler arası iletişimi pipe ile sağlar
+ */
+void execute_piped_commands(char *command)
+{
+    // Komutları pipe karakterine göre ayır
+    char *commands[MAX_ARGUMENTS];
+    int command_count = 0;
+    char *token = strtok(command, "|");
+    while (token != NULL && command_count < MAX_ARGUMENTS - 1)
+    {
+        commands[command_count++] = token;
+        token = strtok(NULL, "|");
+    }
+    commands[command_count] = NULL;
+
+    // Her komut çifti için pipe oluştur
+    int pipes[MAX_ARGUMENTS][2];
+    for (int i = 0; i < command_count - 1; i++)
+    {
+        if (pipe(pipes[i]) < 0)
+        {
+            perror("Pipe creation failed");
+            return;
+        }
+    }
+
+    // Her komut için yeni bir süreç oluştur
+    for (int i = 0; i < command_count; i++)
+    {
+        pid_t pid = fork();
+        if (pid < 0)
+        {
+            perror("Fork failed");
+            return;
+        }
+
+        if (pid == 0)
+        {
+            // İlk komut değilse, önceki pipe'ın çıkışını stdin'e bağla
+            if (i > 0)
+            {
+                dup2(pipes[i - 1][0], STDIN_FILENO);
+            }
+            // Son komut değilse, sonraki pipe'ın girişini stdout'a bağla
+            if (i < command_count - 1)
+            {
+                dup2(pipes[i][1], STDOUT_FILENO);
+            }
+
+            // Tüm pipe dosya tanımlayıcılarını kapat
+            for (int j = 0; j < command_count - 1; j++)
+            {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+
+            // Komutu çalıştır
+            execute_command(commands[i]);
+            exit(0);
+        }
+    }
+
+    // Ana süreçte tüm pipe'ları kapat
+    for (int i = 0; i < command_count - 1; i++)
+    {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    // Tüm çocuk süreçlerin bitmesini bekle
+    for (int i = 0; i < command_count; i++)
+    {
+        wait(NULL);
+    }
+}
+
+/*
  * Kullanıcı girdisini işleyen ve uygun şekilde çalıştıran fonksiyon
  * Parametreler:
  * - input: Kullanıcıdan alınan komut satırı
@@ -213,8 +296,7 @@ void parse_and_execute(char *input)
     {
         if (strchr(commands[i], '|') != NULL)
         {
-            // TODO - Pipe işlemini gerçekleştir
-//            execute_piped_commands(commands[i]);
+            execute_piped_commands(commands[i]);
         }
         else
         {
