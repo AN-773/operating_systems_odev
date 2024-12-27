@@ -1,3 +1,7 @@
+#
+# Created by Abdalrahman Nasr, FUAD AISHAN, BERKAY CAN, Shahd Numa Yaldanı
+#
+
 # Compiler and flags
 CC = gcc
 CFLAGS = -g

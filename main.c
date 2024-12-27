@@ -1,3 +1,7 @@
+//
+// Created by Abdalrahman Nasr, FUAD AISHAN, BERKAY CAN, Shahd Numa Yaldanı
+//
+
 /*
  * Basit bir Linux kabuk (shell) uygulaması
  * Bu program, temel komut satırı işlemlerini gerçekleştirebilen bir shell uygulamasıdır.
