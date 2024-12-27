@@ -306,6 +306,48 @@ void parse_and_execute(char *input)
 }
 
 /*
+ * Arka plan işlemlerinin sonlanmasını yakalayan sinyal işleyici
+ * Parametreler:
+ * - sig: Sinyal numarası (SIGCHLD için)
+ * İşlevler:
+ * - Sonlanan arka plan işlemlerini temizler
+ * - İşlem durumunu kontrol eder ve raporlar
+ */
+void handle_child_exit(int sig)
+{
+    int status;
+    pid_t pid;
+
+    // Sonlanan tüm çocuk süreçleri kontrol et
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+    {
+        // Check if this was a background process
+        int is_background = 0;
+        for (int i = 0; i < bg_process_count; i++)
+        {
+            if (background_processes[i] == pid)
+            {
+                is_background = 1;
+                // Remove this PID from our tracking array
+                for (int j = i; j < bg_process_count - 1; j++)
+                {
+                    background_processes[j] = background_processes[j + 1];
+                }
+                bg_process_count--;
+                break;
+            }
+        }
+
+        if (is_background && WIFEXITED(status))
+        {
+            printf("\n[%d] Retval : %d\n", pid, WEXITSTATUS(status));
+            fflush(stdout);
+            print_prompt();
+        }
+    }
+}
+
+/*
  * Ana fonksiyon
  * İşlevler:
  * - SIGCHLD sinyalini yakalar
@@ -314,7 +356,16 @@ void parse_and_execute(char *input)
  */
 int main()
 {
-
+    // SIGCHLD sinyali için yapılandırma
+    struct sigaction sa;
+    sa.sa_handler = handle_child_exit;
+    sa.sa_flags = SA_RESTART;
+    sigemptyset(&sa.sa_mask);
+    if (sigaction(SIGCHLD, &sa, NULL) == -1)
+    {
+        perror("sigaction");
+        exit(1);
+    }
     char input[MAX_COMMAND_LENGTH];
 
     // Ana program döngüsü
@@ -329,6 +380,11 @@ int main()
             continue;
         }
 
+        // Satır sonu karakterini kaldır
+        input[strcspn(input, "\n")] = '\0';
+
+        // Komutu işle ve çalıştır
+        parse_and_execute(input);
     }
 
     return 0;
