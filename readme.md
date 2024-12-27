@@ -1,4 +1,4 @@
-# **README: Simple Linux Shell Application**
+# **Simple Linux Shell Application**
 
 ## **Overview**
 
